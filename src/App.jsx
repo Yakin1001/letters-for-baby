@@ -653,7 +653,7 @@ export default function App() {
 
         <h1>A little world<br/>for <em>your words.</em></h1>
 
-        <p className="muted">Create a shared space, invite your person, and leave letters for each other to find.</p>
+        <p className="muted">Your words means so much to me.</p>
 
         <div className="glow-envelope"><div className="envelope-shape"><Heart fill="currentColor" size={29}/></div><span>sealed with love</span></div>
 
@@ -663,7 +663,7 @@ export default function App() {
 
         <h2>Make it yours</h2>
 
-        <p className="muted">One of you creates the space. The other joins with the invite code.</p>
+        <p className="muted">hit create and send me the code.</p>
 
         <form onSubmit={createCouple} className="stack">
 
@@ -691,7 +691,7 @@ export default function App() {
 
       <section className="welcome">
 
-        <div><p className="eyebrow">A NOTE FROM THE HEART</p><h1>Hi, {profile?.display_name?.trim() || "love"} <span className="pink">♡</span></h1><p className="muted">Somewhere in this little world, there's a note waiting for you.</p></div>
+        <div><p className="eyebrow">A NOTE FROM THE HEART</p><h1>Hi, {profile?.display_name?.trim() || "love"} <span className="pink">♡</span></h1><p className="muted">If I could be beside you, I would have thousand things to say... </p></div>
 
         <div className="welcome-sparkle"><Sparkles size={20}/><span>made for two</span></div>
 
@@ -705,7 +705,7 @@ export default function App() {
 
           <div className={`big-envelope ${envelopeOpening ? "opening" : ""}`}><div className="envelope-back"/><div className="envelope-flap"/><div className="envelope-front"/><div className="seal"><Heart fill="currentColor" size={22}/></div><div className="letter-peek"/></div>
 
-          <h2>Open a random letter</h2><p className="muted">A little message from your person, picked just for this moment.</p>
+          <h2>Open a random letter</h2><p className="muted">Letters from the deepest corners of my heart which is only for my baby gem.</p>
 
           <button className="primary wide" onClick={openRandomLetter} disabled={!receivedLetters.length}><Mail size={17}/> {receivedLetters.length ? "Open my letter" : "Waiting for your first letter"}</button>
 
@@ -717,7 +717,7 @@ export default function App() {
 
           <div className="icon-orb"><BookHeart size={22}/></div><p className="eyebrow">LEAVE A LITTLE LOVE</p><h2>Write a letter</h2>
 
-          <p className="muted">Tell them something they can come back to on any kind of day.</p>
+          <p className="muted">Open up deeply to me. Your words are comforting and meaningful to me.</p>
 
           <button className="secondary wide" onClick={() => { setForm({ title: "", category: CATEGORIES[3], body: "" }); setView("write"); }}><Plus size={17}/> Write to my person</button>
 
@@ -743,7 +743,7 @@ export default function App() {
 
     {view === "read" && activeLetter && <div className="modal-backdrop" role="presentation"><section className="read-modal" role="dialog" aria-modal="true" aria-labelledby="letter-title"><button className="modal-close" onClick={() => setView("home")} aria-label="Close"><X size={19}/></button><button className="back-link" onClick={() => setView("home")}><ArrowLeft size={15}/> Back to our letters</button><div className={`read-envelope ${envelopeOpening ? "opening" : ""}`}><div className="read-paper"><Heart size={18} fill="currentColor"/><span>{activeLetter.category}</span></div><div className="read-envelope-front"/></div><p className="eyebrow centered">{activeLetter.author_id === session.user.id ? "A LETTER FROM YOU" : "A LETTER FROM YOUR PERSON"}</p><h2 id="letter-title">{activeLetter.title}</h2><p className="letter-date">{new Date(activeLetter.created_at).toLocaleDateString(undefined,{dateStyle:"long"})}</p><div className="letter-body">{activeLetter.body}</div><div className="signoff">with love, always <Heart size={15} fill="currentColor"/></div><div className="read-actions"><button className="secondary" onClick={() => {setView("home");setActiveLetter(null);}}><ArrowLeft size={15}/> Close letter</button>{activeLetter.author_id === session.user.id && <button className="danger-button" onClick={() => deleteLetter(activeLetter)}><Trash2 size={15}/> Delete</button>}</div></section></div>}
 
-    <footer className="footer"><span>made with a little love <Heart size={12} fill="currentColor"/></span><span>just US, always.</span></footer>
+    <footer className="footer"><span>made with big love for my baby girl <Heart size={12} fill="currentColor"/></span><span>just US, always.</span></footer>
 
   </main>;
 
