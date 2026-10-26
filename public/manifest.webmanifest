@@ -1,0 +1,16 @@
+{
+  "name": "Letters for Baby",
+  "short_name": "Letters",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#130d19",
+  "theme_color": "#130d19",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

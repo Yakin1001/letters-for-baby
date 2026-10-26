@@ -23,6 +23,10 @@ npm run dev
 
 Open the local URL. A guest session should be created automatically. Each partner must use their own browser/device and create or join the couple using the invite code.
 
+## Optional push notifications
+
+Push requires the additional `supabase/push-notifications-existing-project.sql` migration and deployment of `supabase/functions/notify-letter` with VAPID secrets. Follow the **Enable push notifications** section in `README.md`. Each partner must enable notifications on their own device. On iPhone/iPad, add the site to the Home Screen from Safari and open it there first (iOS/iPadOS 16.4+).
+
 ## Important limitations
 
 - Anonymous sessions are tied to the browser's local storage. Clearing site data, switching browsers/devices, or losing the session can permanently lose access to that guest identity and its couple membership. The app currently has no account-recovery mechanism.

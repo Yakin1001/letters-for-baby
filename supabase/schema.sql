@@ -41,14 +41,23 @@ create table if not exists public.letters (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.push_subscriptions (
+  endpoint text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  subscription jsonb not null,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists letters_couple_created_idx
   on public.letters(couple_id, created_at desc);
 create index if not exists letters_author_idx on public.letters(author_id);
+create index if not exists push_subscriptions_user_idx on public.push_subscriptions(user_id);
 
 alter table public.profiles enable row level security;
 alter table public.couples enable row level security;
 alter table public.couple_members enable row level security;
 alter table public.letters enable row level security;
+alter table public.push_subscriptions enable row level security;
 
 -- Helpers are SECURITY DEFINER to avoid recursive RLS checks on couple_members.
 create or replace function public.current_couple_id()
@@ -175,12 +184,23 @@ for delete to authenticated using (
   and couple_id = (select public.current_couple_id())
 );
 
+create policy "push_subscriptions_select_own" on public.push_subscriptions
+for select to authenticated using (user_id = (select auth.uid()));
+create policy "push_subscriptions_insert_own" on public.push_subscriptions
+for insert to authenticated with check (user_id = (select auth.uid()));
+create policy "push_subscriptions_update_own" on public.push_subscriptions
+for update to authenticated using (user_id = (select auth.uid()))
+with check (user_id = (select auth.uid()));
+create policy "push_subscriptions_delete_own" on public.push_subscriptions
+for delete to authenticated using (user_id = (select auth.uid()));
+
 -- Grant only the operations the app needs. RLS remains the actual access gate.
 grant usage on schema public to authenticated;
 grant select, insert, update on public.profiles to authenticated;
 grant select on public.couples to authenticated;
 grant select on public.couple_members to authenticated;
 grant select, insert, update, delete on public.letters to authenticated;
+grant select, insert, update, delete on public.push_subscriptions to authenticated;
 grant execute on function public.current_couple_id() to authenticated;
 grant execute on function public.create_couple(text) to authenticated;
 grant execute on function public.join_couple(text) to authenticated;
@@ -190,5 +210,6 @@ revoke all on public.profiles from anon;
 revoke all on public.couples from anon;
 revoke all on public.couple_members from anon;
 revoke all on public.letters from anon;
+revoke all on public.push_subscriptions from anon;
 revoke execute on function public.create_couple(text) from anon;
 revoke execute on function public.join_couple(text) from anon;

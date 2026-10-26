@@ -4,9 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
 
-  Heart, Mail, Plus, Sparkles, ArrowLeft, Shuffle,
-
-  Send, Trash2, BookHeart, LockKeyhole, Copy, Check, X
+  Heart, Mail, Plus, Sparkles, ArrowLeft, Bell, RotateCcw,
+  Send, Trash2, BookHeart, LockKeyhole, Copy, X
 
 } from "lucide-react";
 
@@ -41,9 +40,23 @@ export default function App() {
     setNotice("");
 
     try {
+      const registration = "serviceWorker" in navigator
+        ? await navigator.serviceWorker.getRegistration("/")
+        : null;
+      const subscription = await registration?.pushManager?.getSubscription();
+      if (subscription && session?.user) {
+        const { error: subscriptionError } = await supabase.from("push_subscriptions")
+          .delete()
+          .eq("user_id", session.user.id)
+          .eq("endpoint", subscription.endpoint);
+        if (subscriptionError) throw subscriptionError;
+        await subscription.unsubscribe();
+      }
+
       const { error: signOutError } = await supabase.auth.signOut();
       if (signOutError) throw signOutError;
 
+      setNotificationsEnabled(false);
       setSession(null);
       setCouple(null);
       setProfile(null);
@@ -85,6 +98,8 @@ export default function App() {
   const [busy, setBusy] = useState(false);
 
   const [notice, setNotice] = useState("");
+
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   const [categoryFilter, setCategoryFilter] = useState("All");
 
@@ -232,6 +247,35 @@ export default function App() {
 
   useEffect(() => { if (session?.user) loadWorkspace(); }, [session?.user?.id, loadWorkspace]);
 
+  useEffect(() => {
+    if (!session?.user || !("serviceWorker" in navigator) || !("Notification" in window) || !("PushManager" in window)) return;
+
+    let mounted = true;
+
+    async function checkSubscription() {
+      try {
+        const registration = await navigator.serviceWorker.getRegistration("/");
+        const subscription = await registration?.pushManager.getSubscription();
+
+        if (!mounted || !subscription) return;
+
+        const { data, error } = await supabase.from("push_subscriptions")
+          .select("endpoint")
+          .eq("user_id", session.user.id)
+          .eq("endpoint", subscription.endpoint)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (mounted) setNotificationsEnabled(Boolean(data));
+      } catch (error) {
+        if (mounted) setNotice(friendlyError(error));
+      }
+    }
+
+    checkSubscription();
+    return () => { mounted = false; };
+  }, [session?.user?.id]);
+
   async function createCouple(event) {
 
     event.preventDefault();
@@ -310,18 +354,91 @@ export default function App() {
 
       if (error) throw error;
 
+      let deliveryNotice = "";
+      try {
+        const { data: pushResult, error: pushError } = await supabase.functions.invoke("notify-letter", {
+          body: { letterId: data.id }
+        });
+        if (pushError) {
+          deliveryNotice = "Your letter was saved, but the notification could not be sent. Check the push-notification setup.";
+        } else if (pushResult?.reason === "not_enabled") {
+          deliveryNotice = "Your letter was saved. Your person needs to enable notifications on their device.";
+        } else if (pushResult?.failed) {
+          deliveryNotice = "Your letter was saved, but the notification could not be delivered.";
+        }
+      } catch {
+        deliveryNotice = "Your letter was saved, but the notification could not be sent. Check the push-notification setup.";
+      }
+
       setLetters((current) => [data, ...current]);
 
       setForm({ title: "", category: CATEGORIES[3], body: "" });
 
       setView("home");
 
-      setNotice("Your letter is tucked safely away. 💌");
+      setNotice(deliveryNotice || "Your letter is tucked safely away. 💌");
 
     } catch (error) { setNotice(friendlyError(error)); }
 
     finally { setBusy(false); }
 
+  }
+
+  async function enableNotifications() {
+    setBusy(true);
+    setNotice("");
+
+    try {
+      const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent)
+        || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      const isStandalone = window.matchMedia("(display-mode: standalone)").matches
+        || navigator.standalone === true;
+
+      if (isIos && !isStandalone) {
+        setNotice("On iPhone or iPad, add this site to your Home Screen from Safari, open it there, then enable notifications.");
+        return;
+      }
+      if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+        setNotice("Push notifications are not supported by this browser. Try an up-to-date browser and, on iPhone or iPad, use the Home Screen app.");
+        return;
+      }
+
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      if (!vapidPublicKey) {
+        setNotice("Push notifications are not configured yet. Add the VAPID public key to the app environment.");
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setNotice(permission === "denied"
+          ? "Notifications are blocked in your browser settings. Allow them for this app, then try again."
+          : "Notification permission was not granted.");
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      const readyRegistration = await navigator.serviceWorker.ready;
+      const existingSubscription = await readyRegistration.pushManager.getSubscription();
+      const subscription = existingSubscription || await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: base64UrlToUint8Array(vapidPublicKey)
+      });
+
+      const { error } = await supabase.from("push_subscriptions").upsert({
+        user_id: session.user.id,
+        endpoint: subscription.endpoint,
+        subscription: subscription.toJSON()
+      }, { onConflict: "endpoint" });
+      if (error) throw error;
+
+      setNotificationsEnabled(true);
+      setNotice("Notifications are on for this device. 💌");
+    } catch (error) {
+      setNotice(friendlyError(error));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function deleteLetter(letter) {
@@ -475,13 +592,25 @@ export default function App() {
 
       <div className="user-actions">
         <span className="user-email">Private guest session</span>
+        {couple && <button
+          className="secondary small mobile-icon-button"
+          type="button"
+          disabled={busy || notificationsEnabled}
+          aria-label={notificationsEnabled ? "Notifications are enabled" : "Enable notifications"}
+          title={notificationsEnabled ? "Notifications are enabled" : "Enable notifications"}
+          onClick={enableNotifications}
+        >
+          <Bell size={14} /><span className="button-label">{notificationsEnabled ? "Notifications on" : "Enable notifications"}</span>
+        </button>}
         <button
-          className="secondary small"
+          className="secondary small mobile-icon-button"
           type="button"
           disabled={busy}
+          aria-label="Start a new guest session"
+          title="Start a new guest session"
           onClick={startNewSession}
         >
-          New Session
+          <RotateCcw size={14} /><span className="button-label">New Session</span>
         </button>
       </div>
     </header>
@@ -618,6 +747,13 @@ export default function App() {
 
   </main>;
 
+}
+
+function base64UrlToUint8Array(value) {
+  const padding = "=".repeat((4 - value.length % 4) % 4);
+  const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = window.atob(base64);
+  return Uint8Array.from(raw, (character) => character.charCodeAt(0));
 }
 
 function SetupRequired() {
