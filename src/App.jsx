@@ -5,11 +5,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 
   Heart, Mail, Plus, Sparkles, ArrowLeft, Bell, RotateCcw,
-  Send, Trash2, BookHeart, LockKeyhole, Copy, X
+  Send, Trash2, BookHeart, LockKeyhole, Copy, X, ChevronLeft, ChevronRight
 
 } from "lucide-react";
 
 import { supabase, supabaseConfigured } from "./lib/supabase";
+import "./photo-carousel.css";
 
 const CATEGORIES = [
 
@@ -19,17 +20,87 @@ const CATEGORIES = [
 
 ];
 
+const BANNER_PHOTOS = [
+  "/images/couple-1.jpg",
+  "/images/couple-2.jpg",
+  "/images/couple-3.jpg"
+];
+
+function PhotoSlideshow() {
+  const [activePhoto, setActivePhoto] = useState(0);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return undefined;
+
+    const interval = window.setInterval(() => {
+      setActivePhoto((current) => (current + 1) % BANNER_PHOTOS.length);
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [activePhoto]);
+
+  function showPreviousPhoto() {
+    setActivePhoto((current) => (current - 1 + BANNER_PHOTOS.length) % BANNER_PHOTOS.length);
+  }
+
+  function showNextPhoto() {
+    setActivePhoto((current) => (current + 1) % BANNER_PHOTOS.length);
+  }
+
+  return (
+    <div className="photo-carousel" role="region" aria-label="Our photos" aria-roledescription="carousel">
+      <img
+        className="photo-carousel-image"
+        src={BANNER_PHOTOS[activePhoto]}
+        alt={`Photo ${activePhoto + 1} of us`}
+      />
+      <button className="photo-carousel-arrow photo-carousel-previous" type="button" onClick={showPreviousPhoto} aria-label="Previous photo">
+        <ChevronLeft size={20} />
+      </button>
+      <button className="photo-carousel-arrow photo-carousel-next" type="button" onClick={showNextPhoto} aria-label="Next photo">
+        <ChevronRight size={20} />
+      </button>
+      <div className="photo-carousel-dots" aria-label="Choose a photo">
+        {BANNER_PHOTOS.map((photo, index) => (
+          <button
+            key={photo}
+            className={`photo-carousel-dot${activePhoto === index ? " active" : ""}`}
+            type="button"
+            aria-label={`Show photo ${index + 1}`}
+            aria-pressed={activePhoto === index}
+            onClick={() => setActivePhoto(index)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function friendlyError(error) {
 
   if (!error) return "Something went wrong. Please try again.";
 
-  if (/row-level security|policy/i.test(error.message || "")) {
+  const message = typeof error?.message === "string" ? error.message : "";
+
+  if (/row-level security|policy/i.test(message)) {
 
     return "That action was blocked by the database security rules. Check the setup SQL and that you're paired with your partner.";
 
   }
 
-  return error.message || "Something went wrong. Please try again.";
+  if (/anonymous.*sign[- ]?ins?|anonymous.*disabled|sign[- ]?in.*anonymous|provider.*anonymous/i.test(message)) {
+
+    return "Anonymous guest sign-ins are disabled for this Supabase project. Open Authentication → Providers and enable Anonymous Sign-Ins, then try again.";
+
+  }
+
+  if (/failed to fetch|fetch failed|network.*error|network request failed/i.test(message)) {
+
+    return "We could not reach your Supabase project. Check your project URL and keys, then try again.";
+
+  }
+
+  return message || "Something went wrong. Please try again.";
 
 }
 
@@ -157,7 +228,7 @@ export default function App() {
 
       if (!mounted) return;
 
-      if (guestError) setAuthError(`${friendlyError(guestError)} Enable Anonymous Sign-Ins in Supabase Authentication settings.`);
+      if (guestError) setAuthError(friendlyError(guestError));
 
       else setSession(guestData.session);
 
@@ -569,7 +640,7 @@ export default function App() {
 
           const { data, error } = await supabase.auth.signInAnonymously();
 
-          if (error) { setAuthError(`${friendlyError(error)} Enable Anonymous Sign-Ins in Supabase Authentication settings.`); setAuthLoading(false); }
+          if (error) { setAuthError(friendlyError(error)); setAuthLoading(false); }
 
           else setSession(data.session);
 
@@ -697,6 +768,8 @@ export default function App() {
 
       </section>
 
+      <PhotoSlideshow />
+
       <section className="feature-grid">
 
         <article className="feature-card random-card">
@@ -739,7 +812,7 @@ export default function App() {
 
     </>}
 
-    {view === "write" && <div className="modal-backdrop" role="presentation"><section className="letter-modal" role="dialog" aria-modal="true" aria-labelledby="write-title"><button className="modal-close" onClick={() => setView("home")} aria-label="Close"><X size={19}/></button><p className="eyebrow">SEALED WITH LOVE</p><h2 id="write-title">Write to your person</h2><p className="muted">It doesn't have to be perfect. It just has to be yours.</p><form className="stack" onSubmit={saveLetter}><label htmlFor="title">Letter title (optional)</label><input id="title" maxLength={80} placeholder="A little reminder…" value={form.title} onChange={(e) => setForm({...form, title:e.target.value})}/><label htmlFor="category">This letter is for…</label><select id="category" value={form.category} onChange={(e) => setForm({...form, category:e.target.value})}>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select><label htmlFor="body">Your message</label><textarea id="body" required maxLength={5000} rows={8} placeholder="Hey baby… 💗" value={form.body} onChange={(e) => setForm({...form, body:e.target.value})}/><div className="form-foot"><span>{form.body.length}/5000</span><button className="primary" disabled={busy || !form.body.trim()}><Send size={16}/> Save letter</button></div></form></section></div>}
+    {view === "write" && <div className="modal-backdrop" role="presentation"><section className="letter-modal" role="dialog" aria-modal="true" aria-labelledby="write-title"><button className="modal-close" onClick={() => setView("home")} aria-label="Close"><X size={19}/></button><PhotoSlideshow/><p className="eyebrow">SEALED WITH LOVE</p><h2 id="write-title">Write to your person</h2><p className="muted">It doesn't have to be perfect. It just has to be yours.</p><form className="stack" onSubmit={saveLetter}><label htmlFor="title">Letter title (optional)</label><input id="title" maxLength={80} placeholder="A little reminder…" value={form.title} onChange={(e) => setForm({...form, title:e.target.value})}/><label htmlFor="category">This letter is for…</label><select id="category" value={form.category} onChange={(e) => setForm({...form, category:e.target.value})}>{CATEGORIES.map((c) => <option key={c}>{c}</option>)}</select><label htmlFor="body">Your message</label><textarea id="body" required maxLength={5000} rows={8} placeholder="Hey baby… 💗" value={form.body} onChange={(e) => setForm({...form, body:e.target.value})}/><div className="form-foot"><span>{form.body.length}/5000</span><button className="primary" disabled={busy || !form.body.trim()}><Send size={16}/> Save letter</button></div></form></section></div>}
 
     {view === "read" && activeLetter && <div className="modal-backdrop" role="presentation"><section className="read-modal" role="dialog" aria-modal="true" aria-labelledby="letter-title"><button className="modal-close" onClick={() => setView("home")} aria-label="Close"><X size={19}/></button><button className="back-link" onClick={() => setView("home")}><ArrowLeft size={15}/> Back to our letters</button><div className={`read-envelope ${envelopeOpening ? "opening" : ""}`}><div className="read-paper"><Heart size={18} fill="currentColor"/><span>{activeLetter.category}</span></div><div className="read-envelope-front"/></div><p className="eyebrow centered">{activeLetter.author_id === session.user.id ? "A LETTER FROM YOU" : "A LETTER FROM YOUR PERSON"}</p><h2 id="letter-title">{activeLetter.title}</h2><p className="letter-date">{new Date(activeLetter.created_at).toLocaleDateString(undefined,{dateStyle:"long"})}</p><div className="letter-body">{activeLetter.body}</div><div className="signoff">with love, always <Heart size={15} fill="currentColor"/></div><div className="read-actions"><button className="secondary" onClick={() => {setView("home");setActiveLetter(null);}}><ArrowLeft size={15}/> Close letter</button>{activeLetter.author_id === session.user.id && <button className="danger-button" onClick={() => deleteLetter(activeLetter)}><Trash2 size={15}/> Delete</button>}</div></section></div>}
 
