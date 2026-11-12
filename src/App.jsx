@@ -1,16 +1,18 @@
 import React from 'react';
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
 
   Heart, Mail, Plus, Sparkles, ArrowLeft, Bell, RotateCcw,
-  Send, Trash2, BookHeart, LockKeyhole, Copy, X, ChevronLeft, ChevronRight
+  Send, Trash2, BookHeart, LockKeyhole, Copy, X, ChevronLeft, ChevronRight,
+  Play, Pause, SkipBack, SkipForward
 
 } from "lucide-react";
 
 import { supabase, supabaseConfigured } from "./lib/supabase";
 import "./photo-carousel.css";
+import "./music-player.css";
 
 const CATEGORIES = [
 
@@ -25,6 +27,89 @@ const BANNER_PHOTOS = [
   "/images/couple-2.jpg",
   "/images/couple-3.jpg"
 ];
+
+const MUSIC_TRACKS = [
+  "/music/track-1.mp3",
+  "/music/track-2.mp3",
+  "/music/track-3.mp3",
+  "/music/track-4.mp3"
+];
+
+function MusicPlayer() {
+  const audioRef = useRef(null);
+  const [currentTrack, setCurrentTrack] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackError, setPlaybackError] = useState("");
+
+  useEffect(() => {
+    if (!isPlaying) return undefined;
+
+    const audio = audioRef.current;
+    if (!audio) return undefined;
+
+    audio.play().catch(() => {
+      setIsPlaying(false);
+      setPlaybackError("Couldn't play this song. Press play to try again.");
+    });
+
+    return undefined;
+  }, [currentTrack, isPlaying]);
+
+  async function togglePlayback() {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
+      return;
+    }
+
+    setPlaybackError("");
+    try {
+      await audio.play();
+      setIsPlaying(true);
+    } catch {
+      setPlaybackError("Couldn't start the music. Press play to try again.");
+    }
+  }
+
+  function changeTrack(direction) {
+    setCurrentTrack((track) => (track + direction + MUSIC_TRACKS.length) % MUSIC_TRACKS.length);
+  }
+
+  return (
+    <aside className="music-player" aria-label="Background music">
+      <audio
+        ref={audioRef}
+        src={MUSIC_TRACKS[currentTrack]}
+        preload="none"
+        onEnded={() => changeTrack(1)}
+      />
+      <div className="music-player-copy">
+        <span className="music-player-label">OUR SOUNDTRACK</span>
+      </div>
+      <div className="music-player-controls">
+        <button type="button" onClick={() => changeTrack(-1)} aria-label="Previous song">
+          <SkipBack size={16} />
+        </button>
+        <button
+          className="music-player-toggle"
+          type="button"
+          onClick={togglePlayback}
+          aria-label={isPlaying ? "Pause music" : "Play music"}
+          aria-pressed={isPlaying}
+        >
+          {isPlaying ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" />}
+        </button>
+        <button type="button" onClick={() => changeTrack(1)} aria-label="Next song">
+          <SkipForward size={16} />
+        </button>
+      </div>
+      {playbackError && <span className="music-player-error" role="status">{playbackError}</span>}
+    </aside>
+  );
+}
 
 function PhotoSlideshow() {
   const [activePhoto, setActivePhoto] = useState(0);
@@ -655,6 +740,8 @@ export default function App() {
   </main>;
 
   return <main className="app-shell">
+
+    <MusicPlayer />
 
     <header className="topbar">
       <button className="wordmark" onClick={() => setView("home")}>
